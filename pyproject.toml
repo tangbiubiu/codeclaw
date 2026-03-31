@@ -8,6 +8,7 @@ dependencies = [
     "loguru>=0.7.3",
     "openai>=2.30.0",
     "pydantic-settings>=2.13.1",
+    "requests>=2.33.0",
 ]
 
 [[tool.uv.index]]
@@ -17,4 +18,5 @@ default = true
 [dependency-groups]
 dev = [
     "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
 ]
