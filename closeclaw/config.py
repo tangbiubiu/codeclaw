@@ -157,20 +157,6 @@ class AppConfig(BaseSettings):
         CHAT_MODEL_BASE_URL: 聊天模型基础URL
         MAX_TOKENS: 最大token数
         TEMPERATURE: 温度参数
-        EMBEDDING_API_TYPE: 嵌入模型API类型
-        EMBEDDING_MODEL_PROVIDER: 嵌入模型供应商
-        EMBEDDING_MODEL_NAME: 嵌入模型名称
-        EMBEDDING_MODEL_API_KEY: 嵌入模型API密钥
-        EMBEDDING_MODEL_BASE_URL: 嵌入模型基础URL
-        NEO4J_URI: Neo4j连接URI
-        NEO4J_USERNAME: Neo4j用户名
-        NEO4J_PASSWORD: Neo4j密码
-        NEO4J_DATABASE: Neo4j数据库名称
-        POSTGRES_HOST: PostgreSQL主机
-        POSTGRES_PORT: PostgreSQL端口
-        POSTGRES_USER: PostgreSQL用户名
-        POSTGRES_PASSWORD: PostgreSQL密码
-        POSTGRES_DATABASE: PostgreSQL数据库名称
     """
 
     model_config = SettingsConfigDict(
@@ -180,8 +166,6 @@ class AppConfig(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
-
-    PROJECT_ENV: str = Field("dev", description="项目环境")
 
     # 聊天模型配置
     CHAT_API_TYPE: str = Field("openai", description="聊天模型API类型")
