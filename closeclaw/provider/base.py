@@ -1,11 +1,77 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, cast
+from typing import Dict, Any, AsyncIterator, Iterator, Union, cast
 from enum import StrEnum
 from openai import OpenAI, OpenAIError
 
 from closeclaw import constants as cs
+from closeclaw.config import settings
+from closeclaw.logger import app_logger as logger
+from closeclaw.provider.response import (
+    Response,
+    StreamResponse,
+    StreamChunk,
+    Usage,
+    ContentBlock,
+    ToolCall,
+    TextContent,
+)
 
 
+class ProviderError(Exception):
+    """模型提供商异常
+
+    当模型API调用失败时抛出此异常。
+
+    Attributes:
+        message: 错误消息
+        provider: 提供商名称
+        model_id: 模型名称
+        original_error: 原始异常
+    """
+
+    def __init__(
+        self,
+        message: str,
+        provider: str = "unknown",
+        model_id: str | None = None,
+        original_error: Exception | None = None,
+    ) -> None:
+        self.message = message
+        self.provider = provider
+        self.model_id = model_id
+        self.original_error = original_error
+        super().__init__(self.message)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为错误字典
+
+        Returns:
+            包含错误信息的字典
+        """
+        return {
+            "error": {
+                "message": self.message,
+                "provider": self.provider,
+                "model_id": self.model_id,
+                "type": "provider_error",
+            }
+        }
+
+    def __str__(self) -> str:
+        return f"[{self.provider}:{self.model_id}] {self.message}"
+
+# TODO: 当前只实现了OpenAI提供商
+class ProviderName(StrEnum):
+    OLLAMA = "ollama"
+    ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    GOOGLE = "google"
+    AZURE = "azure"
+    COHERE = "cohere"
+    OPENAI_LIKE = "openai_like"
+    VLLM = "vllm"
+
+# TODO: invoke、ainvoke、stream、astream方法
 class ModelProvider(ABC):
     """
     模型提供商基类
@@ -17,95 +83,83 @@ class ModelProvider(ABC):
         self.configs = configs
 
     @abstractmethod
-    def create_model(self) -> Any:
-        pass
-
-    @abstractmethod
     def validate_model(self, model_id: str) -> bool:
         pass
 
     @property
     @abstractmethod
     def provider_name(self) -> str:
+        """提供商名称"""
         pass
 
-
-class Provider(StrEnum):
-    OLLAMA = "ollama"
-    ANTHROPIC = "anthropic"
-    OPENAI = "openai"
-    GOOGLE = "google"
-    AZURE = "azure"
-    COHERE = "cohere"
-    LOCAL = "local"
-    VLLM = "vllm"
-
-
-class OpenAIProvider(ModelProvider):
-    """
-    OpenAI提供商提供商
-    """
-
-    import openai
-
-    __slots__ = (
-        "api_key",
-        "base_url",
-    )
-
-    def __init__(
+    @abstractmethod
+    def invoke(
         self,
-        api_key: str | None = None,
-        base_url: str | None = None,
-        **configs: Dict[str, Any],
-    ) -> None:
+        messages: list[dict[str, Any]],
+        model_id: str | None = None,
+    ) -> Response:
         """
-        初始化OpenAI提供商
+        同步非流式调用
 
-        优先使用传入的api_key和base_url，
-        否则使用环境变量的OPENAI_API_KEY和OPENAI_API_BASE。
+        Args:
+            messages: 消息列表
+            model_id: 模型名称
+
+        Returns:
+            模型响应对象
         """
-        super().__init__(**configs)
+        pass
 
-        if api_key is None:
-            api_key = cast(str | None, configs.get("api_key"))
-            if api_key is None:
-                raise ValueError("api_key is required")
-        if base_url is None:
-            if configs.get("base_url") is not None:
-                base_url = cast(str | None, configs.get("base_url"))
-            else:
-                base_url = cs.OPENAI_DEFAULT_ENDPOINT
-
-        self.api_key = api_key
-        self.base_url = base_url
-
-    @property
-    def provider_name(self) -> str:
-        return Provider.OPENAI.value
-
-    def create_model(self) -> OpenAI:
+    @abstractmethod
+    async def ainvoke(
+        self,
+        messages: list[dict[str, Any]],
+        model_id: str | None = None,
+    ) -> Response:
         """
-        创建模型
-        """
-        return OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            **self.configs,
-        )
+        异步非流式调用
 
-    def validate_model(self, model_id: str) -> bool:
-        """
-        验证连通性
-        """
-        try:
-            model = self.create_model()
-            model.chat.completions.create(
-                model=model_id,
-                messages=[{"role": "user", "content": "This is a test message."}],
-                temperature=0.5,
-            )
-        except OpenAIError:
-            return False
+        Args:
+            messages: 消息列表
+            model_id: 模型名称
 
-        return True
+        Returns:
+            模型响应对象
+        """
+        pass
+
+    @abstractmethod
+    def stream(
+        self,
+        messages: list[dict[str, Any]],
+        model_id: str | None = None,
+    ) -> Iterator[StreamChunk]:
+        """
+        同步流式调用
+
+        Args:
+            messages: 消息列表
+            model_id: 模型名称
+
+        Returns:
+            流式响应块迭代器
+        """
+        pass
+
+    @abstractmethod
+    async def astream(
+        self,
+        messages: list[dict[str, Any]],
+        model_id: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        """
+        异步流式调用
+
+        Args:
+            messages: 消息列表
+            model_id: 模型名称
+
+        Returns:
+            异步流式响应块迭代器
+        """
+        pass
