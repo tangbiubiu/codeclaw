@@ -223,5 +223,16 @@ class AppConfig(BaseSettings):
             print(f"配置验证失败: {e}")
             return False
 
+    def log_config(self) -> None:
+        """记录当前完整配置信息"""
+        logger.info("==================== 模型配置 ====================")
+        logger.info(f"项目环境: {self.PROJECT_ENV}")
+        logger.info(f"聊天模型API类型: {self.CHAT_API_TYPE}")
+        logger.info(f"聊天模型供应商: {self.CHAT_MODEL_PROVIDER}")
+        logger.info(f"聊天模型名称: {self.CHAT_MODEL_NAME}")
+        logger.info(f"聊天模型基础URL: {self.CHAT_MODEL_BASE_URL}")
+        logger.info(f"最大token数: {self.MAX_TOKENS}")
+        logger.info(f"温度参数: {self.TEMPERATURE}")
+
 
 settings = AppConfig()
