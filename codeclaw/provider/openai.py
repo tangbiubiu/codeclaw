@@ -239,10 +239,10 @@ class OpenAIProvider(ModelProvider):
             yield StreamChunk(
                 delta=TextContent(text=""),
                 index=0,
-                finish_reason=FinishReason.ERROR,
+                finish_reason=FinishReason.STOP,
             )
 
-    async def astream(
+    async def astream(  # type: ignore[override]
         self,
         messages: list[dict[str, Any]],
         model_id: str | None = None,
@@ -275,5 +275,5 @@ class OpenAIProvider(ModelProvider):
             yield StreamChunk(
                 delta=TextContent(text=""),
                 index=0,
-                finish_reason=FinishReason.ERROR,
+                finish_reason=FinishReason.STOP,
             )

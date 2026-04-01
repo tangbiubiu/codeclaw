@@ -1,14 +1,28 @@
+from enum import IntEnum
+
 # 供应商信息
 OPENAI_DEFAULT_ENDPOINT = "https://api.openai.com/v1"
 
 # 工具信息
 ## 命令行工具
 # region
+
+
+class ExitCode(IntEnum):
+    """Shell 命令执行返回码"""
+
+    SUCCESS = 0
+    VALIDATION_ERROR = 125
+    EXECUTION_ERROR = 126
+    TIMEOUT = 124
+    GENERAL_ERROR = 1
+
+
 # Shell 执行相关常量
-SHELL_RETURN_CODE_ERROR = 1
+SHELL_RETURN_CODE_ERROR = ExitCode.GENERAL_ERROR
 SHELL_CMD_RM = "rm"
 SHELL_CMD_GREP = "grep"
-SHELL_REDIRECT_OPERATORS = frozenset([">", ">>", "<", "<<", "2>", "2>>", "&>", "&>>"])
+SHELL_REDIRECT_OPERATORS = frozenset([">", ">>", "<", "<<", ">", ">>", "&>", "&>>"])
 SHELL_SUBSHELL_PATTERNS = frozenset(["$(", "`", "<(", ">("])
 SHELL_SYSTEM_DIRECTORIES = frozenset(
     [
@@ -132,7 +146,7 @@ SHELL_DANGEROUS_PATTERNS = (
     (r">\s*/dev/sd[a-z]", "redirect to disk device"),
     (r">\s*/dev/nvme", "redirect to nvme device"),
     (r">\s*/dev/null.*<", "null device manipulation"),
-    (r"chmod\s+.*-R\s+777\s+/", "recursive 777 on root"),
+    (r"chmod\s+.*-R\s+777\s+\/", "recursive 777 on root"),
     (r"chmod\s+.*777\s+/($|\s)", "777 on root"),
     (r"chown\s+.*-R\s+.*\s+/($|\s)", "recursive chown on root"),
     (r":\(\)\s*\{.*:\s*\|", "fork bomb pattern"),

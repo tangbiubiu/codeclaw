@@ -138,10 +138,44 @@ def _has_subshell(command: str) -> str | None:
     return None
 
 
+def _split_by_logical_operators(command: str) -> list[tuple[str, str | None]]:
+    """按逻辑操作符分割命令
+
+    使用 shlex 安全解析命令，识别 &&, ||, ; 等逻辑操作符。
+
+    Args:
+        command: 命令字符串
+
+    Returns:
+        [(命令段, 前置操作符), ...]
+    """
+    parts: list[tuple[str, str | None]] = []
+    current_parts: list[str] = []
+    current_op: str | None = None
+
+    # 使用 shlex 分割，传入 punctuation_chars 到构造函数
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+
+    for token in lexer:
+        if token in ("&&", "||", ";"):
+            if current_parts:
+                parts.append((" ".join(current_parts), current_op))
+                current_parts = []
+            current_op = token
+        else:
+            current_parts.append(token)
+
+    if current_parts:
+        parts.append((" ".join(current_parts), current_op))
+
+    return parts
+
+
 def _parse_command(command: str) -> list[CommandGroup]:
     """解析命令字符串为命令组
 
-    将命令字符串解析为多个命令组，支持管道和逻辑操作符。
+    使用 shlex 安全解析命令字符串，支持管道和逻辑操作符。
 
     Args:
         command: 命令字符串
@@ -149,62 +183,14 @@ def _parse_command(command: str) -> list[CommandGroup]:
     Returns:
         命令组列表
     """
+    logical_parts = _split_by_logical_operators(command)
     groups: list[CommandGroup] = []
-    current_pipeline: list[str] = []
-    current_segment: list[str] = []
-    in_single = False
-    in_double = False
-    pending_operator: str | None = None
-    i = 0
 
-    def finalize_segment() -> None:
-        seg = "".join(current_segment).strip()
-        if seg:
-            current_pipeline.append(seg)
-        current_segment.clear()
-
-    def finalize_group(new_operator: str) -> None:
-        nonlocal pending_operator
-        finalize_segment()
-        if current_pipeline:
-            groups.append(CommandGroup(list(current_pipeline), pending_operator))
-        current_pipeline.clear()
-        pending_operator = new_operator
-
-    while i < len(command):
-        char = command[i]
-        if char == "\\" and i + 1 < len(command):
-            current_segment.append(char)
-            current_segment.append(command[i + 1])
-            i += 2
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-            current_segment.append(char)
-        elif char == '"' and not in_single:
-            in_double = not in_double
-            current_segment.append(char)
-        elif char == "|" and not in_single and not in_double:
-            if i + 1 < len(command) and command[i + 1] == "|":
-                finalize_group("||")
-                i += 2
-                continue
-            finalize_segment()
-        elif char == "&" and not in_single and not in_double:
-            if i + 1 < len(command) and command[i + 1] == "&":
-                finalize_group("&&")
-                i += 2
-                continue
-            current_segment.append(char)
-        elif char == ";" and not in_single and not in_double:
-            finalize_group(";")
-        else:
-            current_segment.append(char)
-        i += 1
-
-    finalize_segment()
-    if current_pipeline:
-        groups.append(CommandGroup(list(current_pipeline), pending_operator))
+    for segment, op in logical_parts:
+        # 按管道分割
+        pipeline_cmds = [p.strip() for p in segment.split("|") if p.strip()]
+        if pipeline_cmds:
+            groups.append(CommandGroup(pipeline_cmds, op))
 
     return groups
 
@@ -238,10 +224,47 @@ def _is_dangerous_rm(cmd_parts: list[str]) -> bool:
     return "r" in flags and "f" in flags
 
 
+def _is_safe_path(path_str: str, project_root: Path) -> tuple[bool, str | None]:
+    """检查路径是否在项目目录内
+
+    使用 pathlib 的 is_relative_to 进行安全检查。
+
+    Args:
+        path_str: 路径字符串
+        project_root: 项目根目录
+
+    Returns:
+        (是否安全, 不安全原因或None)
+    """
+    if path_str in ("*", ".", ".."):
+        return False, f"dangerous path pattern: {path_str}"
+
+    try:
+        if path_str.startswith("/"):
+            resolved = Path(path_str).resolve()
+        else:
+            resolved = (project_root / path_str).resolve()
+    except (OSError, ValueError):
+        return False, f"invalid path: {path_str}"
+
+    # 检查是否是根目录
+    if resolved == resolved.parent:
+        return False, "targeting root directory"
+
+    # 检查是否在项目目录内
+    try:
+        resolved.relative_to(project_root.resolve())
+        return True, None
+    except ValueError:
+        # 在项目目录外，检查是否是系统目录
+        parts = resolved.parts
+        if len(parts) >= 2 and parts[1] in SHELL_SYSTEM_DIRECTORIES:
+            return False, f"targeting system directory: {resolved}"
+        return False, f"targeting path outside project: {resolved}"
+
+
 def _is_dangerous_rm_path(cmd_parts: list[str], project_root: Path) -> tuple[bool, str]:
     """检查rm命令的路径是否危险
-
-    检查rm命令的目标路径是否在项目目录外或是危险路径。
 
     Args:
         cmd_parts: 命令参数列表
@@ -252,27 +275,13 @@ def _is_dangerous_rm_path(cmd_parts: list[str], project_root: Path) -> tuple[boo
     """
     if not cmd_parts or cmd_parts[0] != SHELL_CMD_RM:
         return False, ""
+
     path_args = [p for p in cmd_parts[1:] if not p.startswith("-")]
     for path_arg in path_args:
-        if path_arg in ("*", ".", ".."):
-            return True, f"rm targeting dangerous path: {path_arg}"
-        try:
-            if path_arg.startswith("/"):
-                resolved = Path(path_arg).resolve()
-            else:
-                resolved = (project_root / path_arg).resolve()
-        except (OSError, ValueError):
-            return True, f"rm with invalid path: {path_arg}"
-        resolved_str = str(resolved)
-        if resolved == resolved.parent:
-            return True, "rm targeting root directory"
-        try:
-            resolved.relative_to(project_root)
-        except ValueError:
-            parts = resolved.parts
-            if len(parts) >= 2 and parts[1] in SHELL_SYSTEM_DIRECTORIES:
-                return True, f"rm targeting system directory: {resolved_str}"
-            return True, f"rm targeting path outside project: {resolved_str}"
+        is_safe, reason = _is_safe_path(path_arg, project_root)
+        if not is_safe:
+            return True, f"rm {reason}"
+
     return False, ""
 
 
@@ -291,12 +300,11 @@ def _check_pipeline_patterns(full_command: str) -> str | None:
     return None
 
 
-def _is_dangerous_command(cmd_parts: list[str], full_segment: str) -> tuple[bool, str]:
+def _is_dangerous_command(cmd_parts: list[str]) -> tuple[bool, str]:
     """检查命令是否危险
 
     Args:
         cmd_parts: 命令参数列表
-        full_segment: 完整命令段
 
     Returns:
         (是否危险, 原因)
@@ -312,13 +320,12 @@ def _is_dangerous_command(cmd_parts: list[str], full_segment: str) -> tuple[bool
     if _is_dangerous_rm(cmd_parts):
         return True, "rm with dangerous flags"
 
-    if reason := _check_pipeline_patterns(full_segment):
-        return True, reason
-
     return False, ""
 
 
-def _validate_segment(segment: str, available_commands: str) -> str | None:
+def _validate_segment(
+    segment: str, available_commands: str, check_patterns: bool = True
+) -> str | None:
     """验证命令段
 
     检查命令是否在允许列表中，是否包含危险操作。
@@ -326,6 +333,7 @@ def _validate_segment(segment: str, available_commands: str) -> str | None:
     Args:
         segment: 命令段
         available_commands: 可用命令列表字符串
+        check_patterns: 是否检查危险模式（execute 已全局检查时可设为 False）
 
     Returns:
         如果验证失败返回错误消息，否则返回None
@@ -346,9 +354,13 @@ def _validate_segment(segment: str, available_commands: str) -> str | None:
             cmd=base_cmd, suggestion=suggestion, available=available_commands
         )
 
-    is_dangerous, reason = _is_dangerous_command(cmd_parts, segment)
+    is_dangerous, reason = _is_dangerous_command(cmd_parts)
     if is_dangerous:
         return COMMAND_DANGEROUS_BLOCKED.format(cmd=base_cmd, reason=reason)
+
+    if check_patterns:
+        if pattern_reason := _check_pipeline_patterns(segment):
+            return COMMAND_DANGEROUS_PATTERN.format(reason=pattern_reason)
 
     return None
 
@@ -422,7 +434,7 @@ class ShellCommander:
 
     Attributes:
         project_root: 项目根目录路径
-        timeout: 命令执行超时时间（秒）
+        timeout: 命令执行超时时间（秒），这是整个命令管道执行的总超时时间
     """
 
     __slots__ = ("project_root", "timeout")
@@ -435,7 +447,9 @@ class ShellCommander:
     async def _execute_pipeline(self, segments: list[str]) -> tuple[int, bytes, bytes]:
         """执行管道命令
 
-        执行通过管道连接的多个命令。
+        执行通过管道连接的多个命令。超时时间是整个管道的总超时时间，
+        不是单个命令的超时。如果管道中前面的命令耗时较长，后面的命令
+        可能可用的剩余时间较少。
 
         Args:
             segments: 命令段列表
@@ -444,7 +458,7 @@ class ShellCommander:
             (返回码, 标准输出, 标准错误)
 
         Raises:
-            TimeoutError: 命令执行超时
+            TimeoutError: 命令执行超时（总执行时间超过 timeout）
         """
         start_time = time.monotonic()
         input_data: bytes | None = None
@@ -538,7 +552,10 @@ class ShellCommander:
             available_commands = ", ".join(sorted(SHELL_COMMAND_ALLOWLIST))
             for group in groups:
                 for segment in group.commands:
-                    validation_error = _validate_segment(segment, available_commands)
+                    # 跳过已在全局检查的模式
+                    validation_error = _validate_segment(
+                        segment, available_commands, check_patterns=False
+                    )
                     if validation_error:
                         logger.error(validation_error)
                         return ShellCommandResult(
@@ -625,7 +642,7 @@ class ShellTool(Tool):
     超时控制和管道命令执行。
 
     Attributes:
-        timeout: 命令执行超时时间（秒）
+        timeout: 命令执行总超时时间（秒），覆盖整个命令管道执行过程
     """
 
     timeout: int | None = 30

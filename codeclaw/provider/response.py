@@ -236,14 +236,18 @@ class Message:
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        result: Dict[str, Any] = {
-            "role": self.role,
-            "content": self.content
-            if isinstance(self.content, str)
-            else [
+        content: Union[str, List[Any]]
+        if isinstance(self.content, str):
+            content = self.content
+        else:
+            content = [
                 block.to_dict() if hasattr(block, "to_dict") else block
                 for block in self.content
-            ],
+            ]
+
+        result: Dict[str, Any] = {
+            "role": self.role,
+            "content": content,
         }
 
         if self.tool_calls:
@@ -380,7 +384,7 @@ class StreamChunk:
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        delta_dict: Any = None
+        delta_dict: Optional[Union[str, Dict[str, Any]]] = None
         if isinstance(self.delta, str):
             delta_dict = self.delta
         elif isinstance(self.delta, TextContent):
