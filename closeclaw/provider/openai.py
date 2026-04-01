@@ -2,10 +2,10 @@
 OpenAI 模型提供商
 """
 
-from typing import Dict, Any, Iterator, AsyncIterator, Union, cast
+from typing import Dict, Any, Iterator, AsyncIterator, cast
 from openai import OpenAI, AsyncOpenAI, OpenAIError
 
-from closeclaw.provider.base import ModelProvider, ProviderError, ProviderName
+from closeclaw.provider.base import ModelProvider, ProviderName
 from closeclaw.provider.response import (
     Response,
     StreamChunk,

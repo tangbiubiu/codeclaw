@@ -1,64 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, AsyncIterator, Iterator, Union, cast
 from enum import StrEnum
-from openai import OpenAI, OpenAIError
+from typing import Dict, Any, AsyncIterator, Iterator
 
-from closeclaw import constants as cs
-from closeclaw.config import settings
-from closeclaw.logger import app_logger as logger
-from closeclaw.provider.response import (
-    Response,
-    StreamResponse,
-    StreamChunk,
-    Usage,
-    ContentBlock,
-    ToolCall,
-    TextContent,
-)
+from closeclaw.provider.response import Response, StreamChunk
 
-
-class ProviderError(Exception):
-    """模型提供商异常
-
-    当模型API调用失败时抛出此异常。
-
-    Attributes:
-        message: 错误消息
-        provider: 提供商名称
-        model_id: 模型名称
-        original_error: 原始异常
-    """
-
-    def __init__(
-        self,
-        message: str,
-        provider: str = "unknown",
-        model_id: str | None = None,
-        original_error: Exception | None = None,
-    ) -> None:
-        self.message = message
-        self.provider = provider
-        self.model_id = model_id
-        self.original_error = original_error
-        super().__init__(self.message)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为错误字典
-
-        Returns:
-            包含错误信息的字典
-        """
-        return {
-            "error": {
-                "message": self.message,
-                "provider": self.provider,
-                "model_id": self.model_id,
-                "type": "provider_error",
-            }
-        }
-
-    def __str__(self) -> str:
-        return f"[{self.provider}:{self.model_id}] {self.message}"
 
 # TODO: 当前只实现了OpenAI提供商
 class ProviderName(StrEnum):
