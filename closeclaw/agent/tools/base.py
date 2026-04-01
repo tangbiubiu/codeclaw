@@ -23,7 +23,7 @@ class Tool(ABC):
 
     @property
     @abstractmethod
-    def parameters(self) -> str:
+    def parameters(self) -> dict[str, Any]:
         """工具参数，json schema"""
         pass
 

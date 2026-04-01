@@ -16,6 +16,7 @@ class ProviderName(StrEnum):
     OPENAI_LIKE = "openai_like"
     VLLM = "vllm"
 
+
 # TODO: invoke、ainvoke、stream、astream方法
 class ModelProvider(ABC):
     """

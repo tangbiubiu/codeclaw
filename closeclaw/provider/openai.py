@@ -12,7 +12,7 @@ from closeclaw.provider.response import (
     convert_openai_response,
     convert_openai_stream_chunk,
     TextContent,
-
+    FinishReason,
 )
 from closeclaw import constants as cs
 from closeclaw.config import settings
@@ -232,18 +232,13 @@ class OpenAIProvider(ModelProvider):
                 yield convert_openai_stream_chunk(chunk)
         except OpenAIError as e:
             logger.error("OpenAI API 流式调用失败: %s", e)
-            error_response = self._create_error_response(
-                message=f"OpenAI API 流式调用失败: {str(e)}",
-                model_id=model_id,
-                original_error=e,
-            )
             yield StreamChunk(
                 delta=TextContent(text=""),
                 index=0,
-                finish_reason=error_response.error,
+                finish_reason=FinishReason.STOP,
             )
 
-    async def astream(
+    async def astream(  # type: ignore[override]
         self,
         messages: list[dict[str, Any]],
         model_id: str | None = None,
@@ -273,13 +268,8 @@ class OpenAIProvider(ModelProvider):
                 yield convert_openai_stream_chunk(chunk)
         except OpenAIError as e:
             logger.error("OpenAI API 流式调用失败: %s", e)
-            error_response = self._create_error_response(
-                message=f"OpenAI API 流式调用失败: {str(e)}",
-                model_id=model_id,
-                original_error=e,
-            )
             yield StreamChunk(
                 delta=TextContent(text=""),
                 index=0,
-                finish_reason=error_response.error,
+                finish_reason=FinishReason.STOP,
             )

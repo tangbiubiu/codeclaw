@@ -4,16 +4,14 @@
 包含工具调用、文本内容、token使用统计等响应相关的数据结构
 """
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
-
-from closeclaw.logger import app_logger as logger
+from typing import Any, Dict, List, Optional, Union
 
 
 class ContentBlockType(StrEnum):
     """内容块类型"""
+
     TEXT = "text"
     IMAGE = "image"
     TOOL_USE = "tool_use"
@@ -22,6 +20,7 @@ class ContentBlockType(StrEnum):
 
 class FinishReason(StrEnum):
     """结束原因"""
+
     STOP = "stop"
     LENGTH = "length"
     TOOL_calls = "tool_calls"
@@ -39,6 +38,7 @@ class Usage:
         completion_tokens: 生成内容的token数量
         total_tokens: 总token数量
     """
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -60,6 +60,7 @@ class TextContent:
     Attributes:
         text: 文本内容
     """
+
     text: str
 
     def to_dict(self) -> Dict[str, Any]:
@@ -79,6 +80,7 @@ class ImageContent:
         url: 图像URL
         detail: 图像详情级别 ("low", "high", "auto")
     """
+
     url: str
     detail: str = "auto"
 
@@ -102,12 +104,14 @@ class ToolCallArgument:
         name: 参数名称
         value: 参数值 (JSON字符串)
     """
+
     name: str
     value: str
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         import json
+
         try:
             return json.loads(self.value)
         except json.JSONDecodeError:
@@ -124,6 +128,7 @@ class ToolCall:
         name: 工具名称
         arguments: 工具参数 (字典形式)
     """
+
     id: str
     name: str
     arguments: Dict[str, Any] = field(default_factory=dict)
@@ -146,6 +151,7 @@ class ToolCall:
         args_str = func.get("arguments", "{}")
         if isinstance(args_str, str):
             import json
+
             try:
                 args = json.loads(args_str)
             except json.JSONDecodeError:
@@ -170,6 +176,7 @@ class ToolResultContent:
         output: 工具执行结果
         is_error: 是否为错误结果
     """
+
     tool_call_id: str
     output: str
     is_error: bool = False
@@ -198,6 +205,7 @@ class Choice:
         message: 响应的消息内容
         finish_reason: 结束原因
     """
+
     index: int = 0
     message: Optional["Message"] = None
     finish_reason: Optional[FinishReason] = None
@@ -221,16 +229,21 @@ class Message:
         content: 消息内容 (可以是字符串或内容块列表)
         tool_calls: 工具调用列表
     """
+
     role: str
     content: Union[str, List[ContentBlock]] = ""
     tool_calls: Optional[List[ToolCall]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
+        content: Union[str, List[Any]]
         if isinstance(self.content, str):
             content = self.content
         else:
-            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in self.content]
+            content = [
+                block.to_dict() if hasattr(block, "to_dict") else block
+                for block in self.content
+            ]
 
         result: Dict[str, Any] = {
             "role": self.role,
@@ -252,6 +265,7 @@ class ResponseMetadata:
         model: 实际使用的模型名称
         id: 响应ID
     """
+
     model: str = ""
     id: str = ""
 
@@ -277,6 +291,7 @@ class Response:
         choices: 响应选项列表
         error: 错误信息
     """
+
     content: List[ContentBlock] = field(default_factory=list)
     metadata: ResponseMetadata = field(default_factory=ResponseMetadata)
     usage: Optional[Usage] = None
@@ -286,7 +301,10 @@ class Response:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         result: Dict[str, Any] = {
-            "content": [block.to_dict() if hasattr(block, "to_dict") else block for block in self.content],
+            "content": [
+                block.to_dict() if hasattr(block, "to_dict") else block
+                for block in self.content
+            ],
             "metadata": self.metadata.to_dict(),
         }
 
@@ -357,6 +375,7 @@ class StreamChunk:
         finish_reason: 结束原因
         usage: 增量token使用 (部分provider支持)
     """
+
     delta: Union[TextContent, ToolCall, str, None] = None
     index: int = 0
     finish_reason: Optional[FinishReason] = None
@@ -365,7 +384,7 @@ class StreamChunk:
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        delta_dict = None
+        delta_dict: Optional[Union[str, Dict[str, Any]]] = None
         if isinstance(self.delta, str):
             delta_dict = self.delta
         elif isinstance(self.delta, TextContent):
@@ -405,6 +424,7 @@ class StreamResponse:
     Attributes:
         chunks: 接收的块列表
     """
+
     chunks: List[StreamChunk] = field(default_factory=list)
 
     def add_chunk(self, chunk: StreamChunk) -> None:
@@ -459,11 +479,13 @@ class StreamResponse:
             message = Message(role="assistant", content=content if content else "")
             if tool_calls:
                 message.tool_calls = list(tool_calls.values())
-            choices.append(Choice(
-                index=0,
-                message=message,
-                finish_reason=final_finish_reason,
-            ))
+            choices.append(
+                Choice(
+                    index=0,
+                    message=message,
+                    finish_reason=final_finish_reason,
+                )
+            )
 
         return Response(
             content=content,
@@ -518,7 +540,9 @@ def convert_openai_response(response: Any) -> Response:
 
                 if hasattr(msg, "tool_calls") and msg.tool_calls:
                     for tc in msg.tool_calls:
-                        tool_call = ToolCall.from_dict(tc.to_dict() if hasattr(tc, "to_dict") else tc)
+                        tool_call = ToolCall.from_dict(
+                            tc.to_dict() if hasattr(tc, "to_dict") else tc
+                        )
                         tool_calls[tool_call.id] = tool_call
 
                 if hasattr(msg, "role"):
@@ -535,11 +559,13 @@ def convert_openai_response(response: Any) -> Response:
                 except ValueError:
                     finish_reason = FinishReason.STOP
 
-            choices.append(Choice(
-                index=idx,
-                message=message,
-                finish_reason=finish_reason,
-            ))
+            choices.append(
+                Choice(
+                    index=idx,
+                    message=message,
+                    finish_reason=finish_reason,
+                )
+            )
 
     metadata = ResponseMetadata(
         model=getattr(response, "model", ""),
