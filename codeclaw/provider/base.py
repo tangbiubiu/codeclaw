@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Dict, Any, AsyncIterator, Iterator
 
-from closeclaw.provider.response import Response, StreamChunk
+from codeclaw.provider.response import Response, StreamChunk
 
 
 # TODO: 当前只实现了OpenAI提供商
@@ -15,6 +15,7 @@ class ProviderName(StrEnum):
     COHERE = "cohere"
     OPENAI_LIKE = "openai_like"
     VLLM = "vllm"
+
 
 # TODO: invoke、ainvoke、stream、astream方法
 class ModelProvider(ABC):
@@ -92,7 +93,7 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    async def astream(
+    def astream(
         self,
         messages: list[dict[str, Any]],
         model_id: str | None = None,

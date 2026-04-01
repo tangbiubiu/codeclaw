@@ -10,8 +10,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from closeclaw.agent.tools.base import Tool
-from closeclaw.constants import (
+from codeclaw.agent.tools.base import Tool
+from codeclaw.constants import (
     COMMAND_DANGEROUS_BLOCKED,
     COMMAND_DANGEROUS_PATTERN,
     COMMAND_EMPTY,
@@ -36,7 +36,7 @@ from closeclaw.constants import (
     TOOL_SHELL_STDOUT,
     SHELL_COMMANDER_INIT,
 )
-from closeclaw.logger import app_logger as logger
+from codeclaw.logger import app_logger as logger
 
 # 编译危险命令模式
 PIPELINE_PATTERNS_COMPILED = tuple(
@@ -512,9 +512,7 @@ class ShellCommander:
         logger.info(TOOL_SHELL_EXEC.format(cmd=command))
         try:
             if subshell_pattern := _has_subshell(command):
-                err_msg = COMMAND_SUBSHELL_NOT_ALLOWED.format(
-                    pattern=subshell_pattern
-                )
+                err_msg = COMMAND_SUBSHELL_NOT_ALLOWED.format(pattern=subshell_pattern)
                 logger.error(err_msg)
                 return ShellCommandResult(
                     return_code=SHELL_RETURN_CODE_ERROR, stdout="", stderr=err_msg
@@ -540,12 +538,13 @@ class ShellCommander:
             available_commands = ", ".join(sorted(SHELL_COMMAND_ALLOWLIST))
             for group in groups:
                 for segment in group.commands:
-                    if err_msg := _validate_segment(segment, available_commands):
-                        logger.error(err_msg)
+                    validation_error = _validate_segment(segment, available_commands)
+                    if validation_error:
+                        logger.error(validation_error)
                         return ShellCommandResult(
                             return_code=SHELL_RETURN_CODE_ERROR,
                             stdout="",
-                            stderr=err_msg,
+                            stderr=validation_error,
                         )
                     try:
                         cmd_parts = shlex.split(segment)

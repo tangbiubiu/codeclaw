@@ -2,7 +2,6 @@
 pytest 配置文件
 """
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -49,9 +48,12 @@ def create_mock_openai_response(response_dict: dict) -> MagicMock:
                             "type": tc_data.get("type", "function"),
                             "function": {
                                 "name": tc_data.get("function", {}).get("name", ""),
-                                "arguments": tc_data.get("function", {}).get("arguments", "{}"),
+                                "arguments": tc_data.get("function", {}).get(
+                                    "arguments", "{}"
+                                ),
                             },
                         }
+
                     return to_dict
 
                 tc.to_dict = make_to_dict(tc_data, tc)

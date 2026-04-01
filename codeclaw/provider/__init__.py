@@ -2,8 +2,8 @@
 模型提供商模块
 """
 
-from closeclaw.provider.base import ModelProvider, ProviderName
-from closeclaw.provider.response import (
+from codeclaw.provider.base import ModelProvider, ProviderName
+from codeclaw.provider.response import (
     Response,
     StreamChunk,
     StreamResponse,

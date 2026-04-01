@@ -2,8 +2,7 @@
 Response 响应类单元测试
 """
 
-import pytest
-from closeclaw.provider.response import (
+from codeclaw.provider.response import (
     ContentBlockType,
     FinishReason,
     Usage,
@@ -635,37 +634,41 @@ class TestConvertOpenAIStreamChunk:
 
     def test_convert_empty_delta(self):
         """测试转换空增量"""
-        empty_chunk = create_mock_stream_chunk({
-            "id": "chatcmpl-empty",
-            "object": "chat.completion.chunk",
-            "created": 1234567890,
-            "model": "gpt-4o-mini",
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": None,
-                }
-            ],
-        })
+        empty_chunk = create_mock_stream_chunk(
+            {
+                "id": "chatcmpl-empty",
+                "object": "chat.completion.chunk",
+                "created": 1234567890,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+        )
         chunk = convert_openai_stream_chunk(empty_chunk)
         assert chunk.delta is None
 
     def test_convert_with_finish_reason(self):
         """测试转换带结束原因的块"""
-        chunk_data = create_mock_stream_chunk({
-            "id": "chatcmpl-finish",
-            "object": "chat.completion.chunk",
-            "created": 1234567890,
-            "model": "gpt-4o-mini",
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": "stop",
-                }
-            ],
-        })
+        chunk_data = create_mock_stream_chunk(
+            {
+                "id": "chatcmpl-finish",
+                "object": "chat.completion.chunk",
+                "created": 1234567890,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "stop",
+                    }
+                ],
+            }
+        )
         chunk = convert_openai_stream_chunk(chunk_data)
         assert chunk.finish_reason == FinishReason.STOP
 

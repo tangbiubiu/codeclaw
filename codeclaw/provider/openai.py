@@ -5,18 +5,18 @@ OpenAI 模型提供商
 from typing import Dict, Any, Iterator, AsyncIterator, cast
 from openai import OpenAI, AsyncOpenAI, OpenAIError
 
-from closeclaw.provider.base import ModelProvider, ProviderName
-from closeclaw.provider.response import (
+from codeclaw.provider.base import ModelProvider, ProviderName
+from codeclaw.provider.response import (
     Response,
     StreamChunk,
+    FinishReason,
     convert_openai_response,
     convert_openai_stream_chunk,
     TextContent,
-
 )
-from closeclaw import constants as cs
-from closeclaw.config import settings
-from closeclaw.logger import app_logger as logger
+from codeclaw import constants as cs
+from codeclaw.config import settings
+from codeclaw.logger import app_logger as logger
 
 
 class OpenAIProvider(ModelProvider):
@@ -29,6 +29,8 @@ class OpenAIProvider(ModelProvider):
     __slots__ = (
         "api_key",
         "base_url",
+        "_sync_client",
+        "_async_client",
     )
 
     def __init__(
@@ -57,6 +59,8 @@ class OpenAIProvider(ModelProvider):
 
         self.api_key = api_key
         self.base_url = base_url
+        self._sync_client: OpenAI | None = None
+        self._async_client: AsyncOpenAI | None = None
 
     @property
     def provider_name(self) -> str:
@@ -69,11 +73,7 @@ class OpenAIProvider(ModelProvider):
         """
         try:
             model = self._create_model()
-            model.chat.completions.create(
-                model=model_id,
-                messages=[{"role": "user", "content": "This is a test message."}],
-                temperature=0.5,
-            )
+            model.models.list()
         except OpenAIError as e:
             logger.error("OpenAI模型验证失败: %s", e)
             return False
@@ -88,11 +88,13 @@ class OpenAIProvider(ModelProvider):
         Returns:
             OpenAI客户端实例
         """
-        return OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            **self.configs,
-        )
+        if self._sync_client is None:
+            self._sync_client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                **self.configs,
+            )
+        return self._sync_client
 
     def _create_async_model(self) -> AsyncOpenAI:
         """
@@ -101,11 +103,13 @@ class OpenAIProvider(ModelProvider):
         Returns:
             AsyncOpenAI客户端实例
         """
-        return AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            **self.configs,
-        )
+        if self._async_client is None:
+            self._async_client = AsyncOpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                **self.configs,
+            )
+        return self._async_client
 
     def _create_error_response(
         self,
@@ -157,7 +161,7 @@ class OpenAIProvider(ModelProvider):
             response = model.chat.completions.create(
                 model=model_id,
                 messages=messages,
-                temperature=0.5,
+                temperature=settings.TEMPERATURE,
             )
             return convert_openai_response(response)
         except OpenAIError as e:
@@ -191,7 +195,7 @@ class OpenAIProvider(ModelProvider):
             response = await model.chat.completions.create(
                 model=model_id,
                 messages=messages,
-                temperature=0.5,
+                temperature=settings.TEMPERATURE,
             )
             return convert_openai_response(response)
         except OpenAIError as e:
@@ -225,22 +229,17 @@ class OpenAIProvider(ModelProvider):
             response = model.chat.completions.create(
                 model=model_id,
                 messages=messages,
-                temperature=0.5,
+                temperature=settings.TEMPERATURE,
                 stream=True,
             )
             for chunk in response:
                 yield convert_openai_stream_chunk(chunk)
         except OpenAIError as e:
             logger.error("OpenAI API 流式调用失败: %s", e)
-            error_response = self._create_error_response(
-                message=f"OpenAI API 流式调用失败: {str(e)}",
-                model_id=model_id,
-                original_error=e,
-            )
             yield StreamChunk(
                 delta=TextContent(text=""),
                 index=0,
-                finish_reason=error_response.error,
+                finish_reason=FinishReason.ERROR,
             )
 
     async def astream(
@@ -266,20 +265,15 @@ class OpenAIProvider(ModelProvider):
             response = await model.chat.completions.create(
                 model=model_id,
                 messages=messages,
-                temperature=0.5,
+                temperature=settings.TEMPERATURE,
                 stream=True,
             )
             async for chunk in response:
                 yield convert_openai_stream_chunk(chunk)
         except OpenAIError as e:
             logger.error("OpenAI API 流式调用失败: %s", e)
-            error_response = self._create_error_response(
-                message=f"OpenAI API 流式调用失败: {str(e)}",
-                model_id=model_id,
-                original_error=e,
-            )
             yield StreamChunk(
                 delta=TextContent(text=""),
                 index=0,
-                finish_reason=error_response.error,
+                finish_reason=FinishReason.ERROR,
             )

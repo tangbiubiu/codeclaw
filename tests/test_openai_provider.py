@@ -3,20 +3,14 @@ OpenAIProvider 集成测试
 """
 
 import os
-from typing import Any, Dict
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from closeclaw.provider.openai import OpenAIProvider
-from closeclaw.provider.base import ProviderName
-from closeclaw.provider.response import (
+from codeclaw.provider.openai import OpenAIProvider
+from codeclaw.provider.base import ProviderName
+from codeclaw.provider.response import (
     Response,
-    StreamChunk,
-    StreamResponse,
-    TextContent,
-    ToolCall,
-    Usage,
     FinishReason,
 )
 
@@ -46,7 +40,9 @@ def base_url() -> str | None:
 @pytest.fixture
 def model_id() -> str | None:
     """获取模型名称"""
-    return os.environ.get("CHAT_MODEL_NAME") or os.environ.get("OPENAI_MODEL_NAME", "gpt-4o-mini")
+    return os.environ.get("CHAT_MODEL_NAME") or os.environ.get(
+        "OPENAI_MODEL_NAME", "gpt-4o-mini"
+    )
 
 
 class TestOpenAIProviderInit:
@@ -82,7 +78,9 @@ class TestOpenAIProviderProperties:
 
     def test_provider_name(self):
         """测试提供商名称"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
         assert provider.provider_name == "openai"
         assert provider.provider_name == ProviderName.OPENAI.value
 
@@ -92,7 +90,9 @@ class TestOpenAIProviderInvoke:
 
     def test_invoke_with_mock(self, test_messages):
         """测试使用 Mock 的 invoke 调用"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         mock_response = MagicMock()
         mock_response.id = "chatcmpl-mock"
@@ -113,7 +113,7 @@ class TestOpenAIProviderInvoke:
             total_tokens=15,
         )
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create.return_value = mock_response
             mock_openai_class.return_value = mock_openai_instance
@@ -132,11 +132,15 @@ class TestOpenAIProviderInvoke:
         """测试 API 错误处理"""
         from openai import OpenAIError
 
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
-            mock_openai_instance.chat.completions.create.side_effect = OpenAIError("API Error")
+            mock_openai_instance.chat.completions.create.side_effect = OpenAIError(
+                "API Error"
+            )
             mock_openai_class.return_value = mock_openai_instance
 
             result = provider.invoke(messages=test_messages)
@@ -148,7 +152,9 @@ class TestOpenAIProviderInvoke:
 
     def test_invoke_with_custom_model(self, test_messages):
         """测试使用自定义模型"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         mock_response = MagicMock()
         mock_response.id = "chatcmpl-custom"
@@ -160,9 +166,11 @@ class TestOpenAIProviderInvoke:
                 finish_reason="stop",
             )
         ]
-        mock_response.usage = MagicMock(prompt_tokens=5, completion_tokens=3, total_tokens=8)
+        mock_response.usage = MagicMock(
+            prompt_tokens=5, completion_tokens=3, total_tokens=8
+        )
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create.return_value = mock_response
             mock_openai_class.return_value = mock_openai_instance
@@ -179,7 +187,9 @@ class TestOpenAIProviderAinvoke:
     @pytest.mark.anyio
     async def test_ainvoke_with_mock(self, test_messages):
         """测试使用 Mock 的 async invoke 调用"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         mock_response = MagicMock()
         mock_response.id = "chatcmpl-async-mock"
@@ -191,12 +201,14 @@ class TestOpenAIProviderAinvoke:
                 finish_reason="stop",
             )
         ]
-        mock_response.usage = MagicMock(prompt_tokens=8, completion_tokens=4, total_tokens=12)
+        mock_response.usage = MagicMock(
+            prompt_tokens=8, completion_tokens=4, total_tokens=12
+        )
 
         async def mock_acreate(*args, **kwargs):
             return mock_response
 
-        with patch("closeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create = mock_acreate
             mock_openai_class.return_value = mock_openai_instance
@@ -212,12 +224,14 @@ class TestOpenAIProviderAinvoke:
         """测试异步调用的错误处理"""
         from openai import OpenAIError
 
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         async def mock_acreate_error(*args, **kwargs):
             raise OpenAIError("Async API Error")
 
-        with patch("closeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create = mock_acreate_error
             mock_openai_class.return_value = mock_openai_instance
@@ -234,13 +248,30 @@ class TestOpenAIProviderStream:
 
     def test_stream_with_mock(self, test_messages):
         """测试使用 Mock 的流式调用"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         def mock_stream():
             chunks_data = [
-                {"id": "1", "model": "gpt-4o-mini", "delta_content": "Hello", "finish_reason": None},
-                {"id": "2", "model": "gpt-4o-mini", "delta_content": " World", "finish_reason": None},
-                {"id": "3", "model": "gpt-4o-mini", "delta_content": None, "finish_reason": "stop"},
+                {
+                    "id": "1",
+                    "model": "gpt-4o-mini",
+                    "delta_content": "Hello",
+                    "finish_reason": None,
+                },
+                {
+                    "id": "2",
+                    "model": "gpt-4o-mini",
+                    "delta_content": " World",
+                    "finish_reason": None,
+                },
+                {
+                    "id": "3",
+                    "model": "gpt-4o-mini",
+                    "delta_content": None,
+                    "finish_reason": "stop",
+                },
             ]
             for data in chunks_data:
                 chunk = MagicMock()
@@ -261,7 +292,7 @@ class TestOpenAIProviderStream:
                 chunk.choices = [choice]
                 yield chunk
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create.return_value = mock_stream()
             mock_openai_class.return_value = mock_openai_instance
@@ -277,11 +308,15 @@ class TestOpenAIProviderStream:
         """测试流式调用的错误处理"""
         from openai import OpenAIError
 
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
-            mock_openai_instance.chat.completions.create.side_effect = OpenAIError("Stream Error")
+            mock_openai_instance.chat.completions.create.side_effect = OpenAIError(
+                "Stream Error"
+            )
             mock_openai_class.return_value = mock_openai_instance
 
             chunks = list(provider.stream(messages=test_messages))
@@ -312,7 +347,9 @@ class TestOpenAIProviderAstream:
                 self.index += 1
                 return chunk
 
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         async_chunks = []
         for i, text in enumerate(["Async ", "Stream ", "Test"]):
@@ -347,7 +384,7 @@ class TestOpenAIProviderAstream:
         async def mock_astream(*args, **kwargs):
             return AsyncIteratorMock(async_chunks)
 
-        with patch("closeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create = mock_astream
             mock_openai_class.return_value = mock_openai_instance
@@ -365,12 +402,14 @@ class TestOpenAIProviderAstream:
         """测试异步流式调用的错误处理"""
         from openai import OpenAIError
 
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         async def mock_astream_error(*args, **kwargs):
             raise OpenAIError("Async Stream Error")
 
-        with patch("closeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.AsyncOpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create = mock_astream_error
             mock_openai_class.return_value = mock_openai_instance
@@ -388,11 +427,13 @@ class TestOpenAIProviderValidateModel:
 
     def test_validate_model_success(self):
         """测试模型验证成功"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         mock_response = MagicMock()
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create.return_value = mock_response
             mock_openai_class.return_value = mock_openai_instance
@@ -405,11 +446,15 @@ class TestOpenAIProviderValidateModel:
         """测试模型验证失败"""
         from openai import OpenAIError
 
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
-            mock_openai_instance.chat.completions.create.side_effect = OpenAIError("Model not found")
+            mock_openai_instance.chat.completions.create.side_effect = OpenAIError(
+                "Model not found"
+            )
             mock_openai_class.return_value = mock_openai_instance
 
             result = provider.validate_model("invalid-model")
@@ -478,7 +523,8 @@ class TestOpenAIProviderIntegration:
 
         full_text = "".join(
             chunk.delta if isinstance(chunk.delta, str) else ""
-            for chunk in chunks if chunk.delta
+            for chunk in chunks
+            if chunk.delta
         )
         assert len(full_text) > 0
 
@@ -507,7 +553,9 @@ class TestOpenAIProviderToolCalls:
 
     def test_invoke_with_tool_call_mock(self):
         """测试带有工具调用的 Mock 响应"""
-        provider = OpenAIProvider(api_key="test-key", base_url="https://api.test.com/v1")
+        provider = OpenAIProvider(
+            api_key="test-key", base_url="https://api.test.com/v1"
+        )
 
         def make_tool_call_to_dict(tc_id, name, args):
             def to_dict():
@@ -519,6 +567,7 @@ class TestOpenAIProviderToolCalls:
                         "arguments": args,
                     },
                 }
+
             return to_dict
 
         mock_tool_call = MagicMock()
@@ -526,7 +575,9 @@ class TestOpenAIProviderToolCalls:
         mock_tool_call.type = "function"
         mock_tool_call.function.name = "get_weather"
         mock_tool_call.function.arguments = '{"location": "Beijing"}'
-        mock_tool_call.to_dict = make_tool_call_to_dict("call_tool_123", "get_weather", '{"location": "Beijing"}')
+        mock_tool_call.to_dict = make_tool_call_to_dict(
+            "call_tool_123", "get_weather", '{"location": "Beijing"}'
+        )
 
         mock_response = MagicMock()
         mock_response.id = "chatcmpl-tool"
@@ -542,9 +593,11 @@ class TestOpenAIProviderToolCalls:
                 finish_reason="tool_calls",
             )
         ]
-        mock_response.usage = MagicMock(prompt_tokens=20, completion_tokens=15, total_tokens=35)
+        mock_response.usage = MagicMock(
+            prompt_tokens=20, completion_tokens=15, total_tokens=35
+        )
 
-        with patch("closeclaw.provider.openai.OpenAI") as mock_openai_class:
+        with patch("codeclaw.provider.openai.OpenAI") as mock_openai_class:
             mock_openai_instance = MagicMock()
             mock_openai_instance.chat.completions.create.return_value = mock_response
             mock_openai_class.return_value = mock_openai_instance
