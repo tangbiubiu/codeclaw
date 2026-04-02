@@ -649,3 +649,176 @@ def convert_openai_stream_chunk(chunk: Any) -> StreamChunk:
         usage=usage,
         metadata=metadata,
     )
+
+
+def convert_anthropic_response(response: Any) -> Response:
+    """
+    将Anthropic响应转换为统一格式
+
+    Args:
+        response: Anthropic API响应对象
+
+    Returns:
+        统一格式的Response对象
+    """
+    content: List[ContentBlock] = []
+
+    # Extract content blocks
+    if hasattr(response, "content") and response.content:
+        for block in response.content:
+            if hasattr(block, "type"):
+                if block.type == "text" and hasattr(block, "text"):
+                    content.append(TextContent(text=block.text))
+                elif block.type == "tool_use":
+                    tool_call = ToolCall(
+                        id=getattr(block, "id", ""),
+                        name=getattr(block, "name", ""),
+                        arguments=getattr(block, "input", {}),
+                    )
+                    content.append(tool_call)
+
+    metadata = ResponseMetadata(
+        model=getattr(response, "model", ""),
+        id=getattr(response, "id", ""),
+    )
+
+    usage = None
+    if hasattr(response, "usage") and response.usage:
+        usage = Usage(
+            prompt_tokens=getattr(response.usage, "input_tokens", 0),
+            completion_tokens=getattr(response.usage, "output_tokens", 0),
+            total_tokens=getattr(response.usage, "input_tokens", 0)
+            + getattr(response.usage, "output_tokens", 0),
+        )
+
+    # Create choices from content
+    choices: List[Choice] = []
+    if content:
+        message = Message(role="assistant", content=content)
+        # Check for tool calls in content
+        tool_calls = [
+            block for block in content if isinstance(block, ToolCall)
+        ]
+        if tool_calls:
+            message.tool_calls = tool_calls
+
+        finish_reason = None
+        if hasattr(response, "stop_reason") and response.stop_reason:
+            if response.stop_reason == "end_turn":
+                finish_reason = FinishReason.STOP
+            elif response.stop_reason == "max_tokens":
+                finish_reason = FinishReason.LENGTH
+            elif response.stop_reason == "tool_use":
+                finish_reason = FinishReason.TOOL_CALLS
+            else:
+                finish_reason = FinishReason.STOP
+
+        choices.append(
+            Choice(
+                index=0,
+                message=message,
+                finish_reason=finish_reason,
+            )
+        )
+
+    return Response(
+        content=content if content else [TextContent(text="")],
+        metadata=metadata,
+        usage=usage,
+        choices=choices,
+    )
+
+
+def convert_anthropic_stream_chunk(chunk: Any) -> StreamChunk:
+    """
+    将Anthropic流式块转换为统一格式
+
+    Args:
+        chunk: Anthropic流式事件对象
+
+    Returns:
+        统一格式的StreamChunk对象
+    """
+    delta: Union[TextContent, ToolCall, str, None] = None
+    finish_reason: Optional[FinishReason] = None
+    index = 0
+    usage: Optional[Usage] = None
+    metadata: Optional[ResponseMetadata] = None
+
+    # Handle different chunk types from Anthropic streaming
+    if hasattr(chunk, "type"):
+        chunk_type = chunk.type
+
+        # Content block start
+        if chunk_type == "content_block_start":
+            if hasattr(chunk, "content_block") and chunk.content_block:
+                block = chunk.content_block
+                if hasattr(block, "type"):
+                    if block.type == "text":
+                        text = getattr(block, "text", "")
+                        if text:
+                            delta = TextContent(text=text)
+                    elif block.type == "tool_use":
+                        delta = ToolCall(
+                            id=getattr(block, "id", ""),
+                            name=getattr(block, "name", ""),
+                            arguments=getattr(block, "input", {}),
+                        )
+            index = getattr(chunk, "index", 0)
+
+        # Content block delta (streaming text/tool content)
+        elif chunk_type == "content_block_delta":
+            if hasattr(chunk, "delta") and chunk.delta:
+                delta_obj = chunk.delta
+                if hasattr(delta_obj, "type"):
+                    if delta_obj.type == "text_delta":
+                        text = getattr(delta_obj, "text", "")
+                        if text:
+                            delta = TextContent(text=text)
+                    elif delta_obj.type == "input_json_delta":
+                        # Tool call JSON delta - return as string for accumulation
+                        partial_json = getattr(delta_obj, "partial_json", "")
+                        if partial_json:
+                            delta = partial_json
+            index = getattr(chunk, "index", 0)
+
+        # Message delta (usage, stop reason)
+        elif chunk_type == "message_delta":
+            if hasattr(chunk, "delta") and chunk.delta:
+                delta_obj = chunk.delta
+                if hasattr(delta_obj, "stop_reason") and delta_obj.stop_reason:
+                    stop_reason = delta_obj.stop_reason
+                    if stop_reason == "end_turn":
+                        finish_reason = FinishReason.STOP
+                    elif stop_reason == "max_tokens":
+                        finish_reason = FinishReason.LENGTH
+                    elif stop_reason == "tool_use":
+                        finish_reason = FinishReason.TOOL_CALLS
+                    else:
+                        finish_reason = FinishReason.STOP
+
+            # Handle usage in message_delta
+            if hasattr(chunk, "usage") and chunk.usage:
+                usage = Usage(
+                    prompt_tokens=getattr(chunk.usage, "input_tokens", 0),
+                    completion_tokens=getattr(chunk.usage, "output_tokens", 0),
+                    total_tokens=getattr(chunk.usage, "input_tokens", 0)
+                    + getattr(chunk.usage, "output_tokens", 0),
+                )
+
+        # Message start (contains metadata)
+        elif chunk_type == "message_start":
+            if hasattr(chunk, "message") and chunk.message:
+                msg = chunk.message
+                metadata = ResponseMetadata(
+                    model=getattr(msg, "model", ""),
+                    id=getattr(msg, "id", ""),
+                )
+
+    return StreamChunk(
+        delta=delta,
+        index=index,
+        finish_reason=finish_reason,
+        usage=usage,
+        metadata=metadata,
+    )

@@ -2,6 +2,7 @@ from enum import IntEnum
 
 # 供应商信息
 OPENAI_DEFAULT_ENDPOINT = "https://api.openai.com/v1"
+ANTHROPIC_DEFAULT_ENDPOINT = "https://api.anthropic.com/v1"
 
 # 工具信息
 ## 命令行工具
