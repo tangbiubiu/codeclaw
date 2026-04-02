@@ -1,5 +1,13 @@
 from enum import IntEnum
 
+# 供应商信息
+OPENAI_DEFAULT_ENDPOINT = "https://api.openai.com/v1"
+ANTHROPIC_DEFAULT_ENDPOINT = "https://api.anthropic.com/v1"
+
+# 工具信息
+## 命令行工具
+# region
+
 
 class ExitCode(IntEnum):
     """Shell 命令执行返回码"""
@@ -16,7 +24,7 @@ SHELL_RETURN_CODE_ERROR = ExitCode.GENERAL_ERROR
 SHELL_CMD_RM = "rm"
 SHELL_CMD_GREP = "grep"
 SHELL_REDIRECT_OPERATORS = frozenset([">", ">>", "<", "<<", ">", ">>", "&>", "&>>"])
-SHELL_SUBSHELL_PATTERNS = frozenset(["$(", "`", "<(", ">("])
+SHELL_SUBSHELL_PATTERNS = frozenset(["\$(", "\`", "<(", ">("])
 SHELL_SYSTEM_DIRECTORIES = frozenset(
     [
         "bin",
@@ -187,3 +195,4 @@ TOOL_SHELL_RETURN = "Shell命令返回码: {code}"
 TOOL_SHELL_STDOUT = "Shell命令输出: {stdout}"
 TOOL_SHELL_STDERR = "Shell命令错误: {stderr}"
 TOOL_SHELL_ERROR = "Shell命令执行错误: {error}"
+# endregion

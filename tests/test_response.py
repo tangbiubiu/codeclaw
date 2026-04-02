@@ -2,7 +2,7 @@
 Response 响应类单元测试
 """
 
-from closeclaw.provider.response import (
+from codeclaw.provider.response import (
     ContentBlockType,
     FinishReason,
     Usage,
