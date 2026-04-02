@@ -1,12 +1,5 @@
 from enum import IntEnum
 
-# 供应商信息
-OPENAI_DEFAULT_ENDPOINT = "https://api.openai.com/v1"
-
-# 工具信息
-## 命令行工具
-# region
-
 
 class ExitCode(IntEnum):
     """Shell 命令执行返回码"""
@@ -194,4 +187,3 @@ TOOL_SHELL_RETURN = "Shell命令返回码: {code}"
 TOOL_SHELL_STDOUT = "Shell命令输出: {stdout}"
 TOOL_SHELL_STDERR = "Shell命令错误: {stderr}"
 TOOL_SHELL_ERROR = "Shell命令执行错误: {error}"
-# endregion
